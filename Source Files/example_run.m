@@ -4,25 +4,29 @@ clear all;
 addpath('Core functions','Tables');
 tStart = tic;
 
-M = 4000;
+M = 200;
 Rate  = 1/2;
 
 K = ceil(M*Rate); % infomation length 
 
-maxIter = 4;
-%% code construction
+maxIter = 10;
 
 ldpc_info = LDPC_INFO(M,K); 
 
 
-%% simulation unning paramter
-EsNodB = 0:0.25:2;
+EsNodB = 0:0.25:0.25;
 EsN0 = 10.^(EsNodB/10);
 NoVec = 1./EsN0; % Es is normalized to 1
 sigma = sqrt(NoVec/2);
 [nBitErrs,nBlkErrs,BER_sim,FER_sim] = deal( zeros(size(EsNodB))); 
 
-%% simulation run
+[audio, fs] = audioread('star1.wav');
+
+audio_normalized = int16(audio * 32767);
+audio_binary = dec2bin(typecast(audio_normalized(:), 'uint16'), 16);
+binary_vector = audio_binary(:); 
+binary_vector_int = binary_vector - '0';
+
 t = 0;
 for i = 1: length(EsNodB)% loop each SNR(EsN0)
     
@@ -31,12 +35,16 @@ for i = 1: length(EsNodB)% loop each SNR(EsN0)
     printLen = 0;
     tic;
     
+    
     % loop each block
     Nblocks = 0;
-    while Nblocks < 100000 && nBlkErrs(i)< 200 % stop criterion 
+    it = 1;
+    decbinary = [ zeros(1,length(binary_vector))];
+
+    while Nblocks < 7056  % stop criterion 
         
         %generate random A-bit message
-        msg = randi([0 1],K,1); 
+        msg = binary_vector_int(it:it+K-1);
         %load('msg.mat'); msg = msg.';
         % append fillers to let it fit in base graph
         msg_ldpc = [msg; zeros(ldpc_info.n_F,1)];
@@ -50,18 +58,21 @@ for i = 1: length(EsNodB)% loop each SNR(EsN0)
         
         % BPSK bit to symbol mapping
         s = 1 - 2 * txBits; 
-        
         %AWGN channel
         r = s + sigma(i) * randn(M,1); 
         %load('r.mat'); r = r.'; r = r(2*ldpc_info.Zc+1:end);
         % channel llr
+      
+
         llr = 4 * EsN0(i) *r;
         %llr = r;
         % rate recovery
         llr = nrldpc_rate_recover(ldpc_info,llr);
-        
         % decding 
         decBits = nrldpc_decoder(ldpc_info,llr,maxIter);
+        decbinary(it:it+K-1) = decBits;
+        it = it+K;
+
         %llr = llr(2*ldpc_info.Zc+1:end);
         %msg_cap = nrLDPCDecode(llr,ldpc_info.BGn,maxIter);%,'Algorithm','Offset min-sum');
         %decBits = msg_cap(1:K);
@@ -90,6 +101,17 @@ for i = 1: length(EsNodB)% loop each SNR(EsN0)
 
 
 end
+binaryStr = char(decbinary + '0');  % '1010'
+binary_matrix = reshape(binaryStr, [], 16);
+audio_integers = bin2dec(binary_matrix); 
+audio_reconstructed = typecast(uint16(audio_integers), 'int16'); 
+audio_reconstructed_normalized = double(audio_reconstructed) / 32767;
+
+
+
+audiowrite('star2.wav', audio_reconstructed_normalized, fs);
+scatterplot(s)
+scatterplot(r)
     
 % display and show simulation results    
 fprintf('\n\n');

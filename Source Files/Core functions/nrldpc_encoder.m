@@ -123,7 +123,6 @@ function cword = nrldpc_encoder(ldpc_info,msg)
 
 end
 
-%% test script
 % ldpc_info = LDPC_INFO(8000,2667);
 % msg = randi([0,1],ldpc_info.K,1);
 % cw = nrldpc_encoder_2(ldpc_info,msg);
